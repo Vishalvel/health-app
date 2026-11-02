@@ -2,196 +2,814 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- This line makes the page fit a phone screen -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Daily Health Calculator</title>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f4ef">
+  <title>Daily Health Tracker</title>
+ 
   <style>
-    /* ---------- STYLE: how the page looks ---------- */
+    /* =====================================================
+       STYLE: colours, fonts and layout
+       Change the colours here and the whole app changes.
+       ===================================================== */
+    :root {
+      --bg: #f4f4ef;        /* page background */
+      --card: #ffffff;      /* white cards */
+      --ink: #111211;       /* near black: text and dark cards */
+      --muted: #74776f;     /* grey text */
+      --line: #e4e5de;      /* thin lines */
+      --lime: #d6f53c;      /* main accent colour */
+      --lime-deep: #a9cf14; /* accent used on white cards */
+      --track: #2d302b;     /* empty part of rings on dark cards */
+      --over: #ef5b45;      /* red: used when you go over a target */
+    }
+ 
     * { box-sizing: border-box; }
-
+    [hidden] { display: none !important; }
+ 
     body {
       margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: #f2f7f4;
-      color: #1f2d27;
-      padding: 16px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      line-height: 1.35;
+      -webkit-tap-highlight-color: transparent;
     }
-
-    .container {
-      max-width: 480px;      /* keeps the app narrow like a phone */
-      margin: 0 auto;
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+    .dark :focus-visible { outline-color: var(--lime); }
+ 
+    .app { max-width: 480px; margin: 0 auto; padding: 22px 16px 120px; }
+    .view { display: none; }
+    .view.active { display: block; }
+ 
+    /* ----- header ----- */
+    .top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+    h1 { margin: 0; font-size: 2rem; letter-spacing: -0.02em; }
+    h2 { margin: 0; font-size: 1.15rem; }
+    .date { margin: 2px 0 0; color: var(--muted); font-size: 0.95rem; }
+    .avatar {
+      width: 44px; height: 44px; border-radius: 50%; border: 0;
+      background: var(--ink); color: #fff; font-weight: 700; font-size: 0.9rem;
     }
-
-    h1 { font-size: 1.5rem; margin: 8px 0 4px; }
-    .subtitle { margin: 0 0 20px; color: #55685f; }
-
-    .card {
-      background: #ffffff;
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 16px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+    .section-head { display: flex; justify-content: space-between; align-items: center; margin: 26px 0 12px; }
+    .link { border: 0; background: none; color: var(--muted); font-size: 0.9rem; padding: 4px 0; }
+ 
+    /* ----- cards and buttons ----- */
+    .card { background: var(--card); border-radius: 22px; padding: 18px; }
+    .card.dark { background: var(--ink); color: #fff; }
+    .stack { display: flex; flex-direction: column; gap: 14px; }
+    .banner {
+      display: flex; gap: 12px; align-items: center; justify-content: space-between;
+      background: var(--lime); border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; font-size: 0.9rem;
     }
-
-    label { display: block; margin: 12px 0 4px; font-weight: bold; font-size: 0.9rem; }
-
+    .pill {
+      border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 700; font-size: 0.85rem;
+      background: var(--ink); color: #fff; white-space: nowrap;
+    }
+    .pill.lime { background: var(--lime); color: var(--ink); }
+    .pill.ghost { background: transparent; border: 1px solid #4a4d47; color: #fff; }
+ 
+    /* ----- rings (steps and water) ----- */
+    .ring { position: relative; width: 128px; height: 128px; flex: none; }
+    .ring.sm { width: 92px; height: 92px; }
+    .ring svg { width: 100%; height: 100%; display: block; }
+    .ring .track { fill: none; stroke: var(--track); stroke-width: 14; }
+    .ring .prog {
+      fill: none; stroke: var(--lime); stroke-width: 14; stroke-linecap: round;
+      stroke-dasharray: 326.73; stroke-dashoffset: 326.73; transition: stroke-dashoffset 0.5s ease;
+    }
+    .ring .center {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+    }
+    .center b { font-size: 1.35rem; }
+    .center span { font-size: 0.75rem; color: #a6a9a1; }
+ 
+    /* ----- steps card on Home ----- */
+    .steps-card { display: grid; grid-template-columns: 128px 1fr; gap: 6px 18px; align-items: center; }
+    .stat { padding: 8px 0; border-bottom: 1px solid var(--track); }
+    .stat:last-child { border-bottom: 0; }
+    .stat small { display: block; color: #a6a9a1; font-size: 0.78rem; }
+    .stat b { font-size: 1.2rem; }
+    .stat i { font-style: normal; color: #a6a9a1; font-size: 0.8rem; margin-left: 3px; }
+    .goal-note { grid-column: 1 / -1; margin: 6px 0 0; color: #a6a9a1; font-size: 0.8rem; }
+ 
+    /* ----- week bars ----- */
+    .week { display: flex; justify-content: space-between; align-items: flex-end; height: 100px; padding: 0 4px; }
+    .day { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px; width: 13%; height: 100%; }
+    .bar { width: 100%; max-width: 30px; min-height: 8px; border-radius: 10px; background: #dfe0d9; }
+    .bar.today { background: var(--ink); }
+    .day span { font-size: 0.8rem; color: var(--muted); }
+    .day.today span { color: var(--ink); font-weight: 700; }
+ 
+    /* ----- hydration ----- */
+    .hydration { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .label { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: #a6a9a1; }
+    .big { font-size: 2rem; font-weight: 700; margin: 4px 0 2px; }
+    .big small { font-size: 1.2rem; font-weight: 400; color: #a6a9a1; }
+    .sub { color: #a6a9a1; font-size: 0.85rem; margin: 0 0 12px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+ 
+    /* ----- nutrition cards ----- */
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+    .card-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.9rem; color: var(--muted); }
+    .card-title b { color: var(--ink); }
+    .row { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 0.9rem; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime-deep); flex: none; }
+    .row .v { margin-left: auto; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+    .mrow { margin-bottom: 10px; }
+    .mrow .head { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 5px; }
+    .mrow .head span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .meter { height: 8px; border-radius: 99px; background: #e9eae3; overflow: hidden; }
+    .meter i { display: block; height: 100%; width: 0; background: var(--lime-deep); border-radius: 99px; transition: width 0.4s ease; }
+    .meter i.over { background: var(--over); }
+ 
+    /* ----- forms ----- */
+    .form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+    label { font-size: 0.82rem; font-weight: 600; color: var(--muted); }
     input, select {
-      width: 100%;
-      padding: 12px;
-      font-size: 1rem;
-      border: 1px solid #c5d3cb;
-      border-radius: 10px;
-      background: #fff;
+      width: 100%; min-width: 0; padding: 12px; font-size: 16px;
+      border: 1px solid var(--line); border-radius: 12px; background: #fff;
     }
-
-    button {
-      width: 100%;
-      margin-top: 20px;
-      padding: 14px;
-      font-size: 1.05rem;
-      font-weight: bold;
-      color: #fff;
-      background: #2e8b57;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
+    .primary {
+      width: 100%; border: 0; border-radius: 14px; padding: 14px;
+      background: var(--ink); color: var(--lime); font-weight: 700; font-size: 1rem;
     }
-    button:active { background: #256f46; }
-
-    .error { color: #b3261e; margin-top: 12px; font-size: 0.9rem; }
-
-    .result-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid #e4ece7;
+    .msg { min-height: 1.2em; margin: 8px 0 0; font-size: 0.85rem; color: var(--over); }
+    .note { font-size: 0.8rem; color: var(--muted); margin: 12px 0 0; }
+ 
+    /* ----- Food screen ----- */
+    .food { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .food:last-child { border-bottom: 0; }
+    .food .info { flex: 1; min-width: 0; }
+    .food .name { font-weight: 600; overflow-wrap: anywhere; }
+    .food .meta { font-size: 0.78rem; color: var(--muted); }
+    .food .kcal { font-weight: 700; white-space: nowrap; }
+    .food button { border: 0; background: none; color: var(--muted); font-size: 0.8rem; padding: 6px; }
+    .empty { color: var(--muted); font-size: 0.9rem; margin: 0; }
+ 
+    /* ----- Steps screen ----- */
+    .bigsteps { font-size: 2.6rem; font-weight: 700; letter-spacing: -0.02em; margin: 2px 0; }
+    .progress { height: 10px; border-radius: 99px; background: var(--track); overflow: hidden; margin: 12px 0; }
+    .progress i { display: block; height: 100%; width: 0; background: var(--lime); border-radius: 99px; transition: width 0.4s ease; }
+    .tri { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
+    .tri small { display: block; color: #a6a9a1; font-size: 0.75rem; }
+    .tri b { font-size: 1.1rem; }
+    .quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+    .quick button { border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 12px 0; font-weight: 700; }
+    .inline { display: flex; gap: 8px; }
+    .inline button { flex: none; }
+    .lines .l { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 0.92rem; }
+    .lines .l:last-child { border-bottom: 0; }
+    .lines .l.today { font-weight: 700; }
+    .lines .l span:last-child { font-variant-numeric: tabular-nums; }
+ 
+    /* ----- bottom navigation ----- */
+    .nav {
+      position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg);
+      border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px);
     }
-    .result-row:last-child { border-bottom: none; }
-    .result-row strong { font-size: 1.05rem; }
-
-    .note { font-size: 0.8rem; color: #6b7d74; margin-top: 12px; }
-
-    .hidden { display: none; }
+    .nav-inner { max-width: 480px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
+    .nav button {
+      border: 0; background: none; padding: 10px 0 8px; display: flex; flex-direction: column;
+      align-items: center; gap: 3px; font-size: 0.72rem; color: #9a9d95;
+    }
+    .nav button.on { color: var(--ink); font-weight: 700; }
+    .nav svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+ 
+    @media (max-width: 360px) {
+      .steps-card { grid-template-columns: 1fr; justify-items: center; }
+      .steps-card .stats { width: 100%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
   </style>
 </head>
-
+ 
 <body>
-  <div class="container">
-    <h1>Daily Health Calculator</h1>
-    <p class="subtitle">Find your daily water, calories and macros.</p>
-
-    <!-- ---------- FORM: where the user types their details ---------- -->
-    <div class="card">
-      <label for="age">Age (years)</label>
-      <input id="age" type="number" placeholder="e.g. 25" min="10" max="100">
-
-      <label for="gender">Gender</label>
-      <select id="gender">
-        <option value="male">Male</option>
-        <option value="female">Female</option>
-      </select>
-
-      <label for="height">Height (cm)</label>
-      <input id="height" type="number" placeholder="e.g. 170">
-
-      <label for="weight">Weight (kg)</label>
-      <input id="weight" type="number" placeholder="e.g. 65">
-
-      <label for="activity">Activity level</label>
-      <select id="activity">
-        <option value="1.2">Little or no exercise</option>
-        <option value="1.375">Light exercise (1-3 days/week)</option>
-        <option value="1.55" selected>Moderate exercise (3-5 days/week)</option>
-        <option value="1.725">Hard exercise (6-7 days/week)</option>
-        <option value="1.9">Very hard exercise or physical job</option>
-      </select>
-
-      <label for="goal">Your goal</label>
-      <select id="goal">
-        <option value="lose">Lose weight</option>
-        <option value="maintain" selected>Maintain weight</option>
-        <option value="gain">Gain weight</option>
-      </select>
-
-      <button id="calcBtn">Calculate</button>
-      <div id="error" class="error"></div>
-    </div>
-
-    <!-- ---------- RESULTS: hidden until the user presses Calculate ---------- -->
-    <div id="results" class="card hidden">
-      <div class="result-row"><span>Water per day</span><strong id="waterOut"></strong></div>
-      <div class="result-row"><span>Calories per day</span><strong id="calOut"></strong></div>
-      <div class="result-row"><span>Protein</span><strong id="proteinOut"></strong></div>
-      <div class="result-row"><span>Carbs</span><strong id="carbsOut"></strong></div>
-      <div class="result-row"><span>Fat</span><strong id="fatOut"></strong></div>
-      <p class="note">
-        These are general estimates, not medical advice. If you have a health
-        condition, please check with a doctor or dietitian.
-      </p>
-    </div>
+  <div class="app">
+ 
+    <!-- =====================================================
+         HOME SCREEN
+         ===================================================== -->
+    <section id="view-home" class="view active">
+      <header class="top">
+        <div>
+          <h1>Today</h1>
+          <p class="date" id="dateText"></p>
+        </div>
+        <button class="avatar" id="avatar" data-go="profile" aria-label="Open profile">ME</button>
+      </header>
+ 
+      <div class="banner" id="setupBanner">
+        <span>These targets use sample details. Add your own for numbers that fit you.</span>
+        <button class="pill" data-go="profile">Set up</button>
+      </div>
+ 
+      <!-- steps ring -->
+      <div class="card dark steps-card">
+        <div class="ring">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="track" cx="60" cy="60" r="52"></circle>
+            <circle class="prog" id="stepsRing" cx="60" cy="60" r="52" transform="rotate(-90 60 60)"></circle>
+          </svg>
+          <div class="center"><b id="homeSteps">0</b><span>steps</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><small>Calories burned</small><b id="homeBurn">0</b><i>kcal</i></div>
+          <div class="stat"><small>Distance</small><b id="homeKm">0</b><i>km</i></div>
+          <div class="stat"><small>Active time</small><b id="homeMin">0</b><i>min</i></div>
+        </div>
+        <p class="goal-note" id="homeStepNote"></p>
+      </div>
+ 
+      <!-- this week -->
+      <div class="section-head">
+        <h2>This week</h2>
+        <button class="link" data-go="steps">Details</button>
+      </div>
+      <div class="week" id="weekBars"></div>
+ 
+      <!-- hydration and nutrition -->
+      <div class="section-head">
+        <h2>Hydration &amp; nutrition</h2>
+        <button class="pill" data-go="profile">Manage goals</button>
+      </div>
+ 
+      <div class="card dark hydration">
+        <div>
+          <div class="label">Hydration</div>
+          <div class="big"><span id="waterNow">0</span> <small>ml</small></div>
+          <p class="sub" id="waterNote"></p>
+          <div class="btn-row">
+            <button class="pill lime" id="addWater">+ 250 ml</button>
+            <button class="pill ghost" id="undoWater">Undo</button>
+          </div>
+        </div>
+        <div class="ring sm">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="track" cx="60" cy="60" r="52"></circle>
+            <circle class="prog" id="waterRing" cx="60" cy="60" r="52" transform="rotate(-90 60 60)"></circle>
+          </svg>
+        </div>
+      </div>
+ 
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title"><span>Daily nutrition</span><button class="pill" data-go="food">Log food</button></div>
+          <div class="row"><span class="dot"></span><span>Calories</span><span class="v" id="nCal"></span></div>
+          <div class="row"><span class="dot"></span><span>Protein</span><span class="v" id="nProtein"></span></div>
+          <div class="row"><span class="dot"></span><span>Fiber</span><span class="v" id="nFiber"></span></div>
+          <div class="row"><span class="dot"></span><span>Carbs</span><span class="v" id="nCarbs"></span></div>
+          <div class="row"><span class="dot"></span><span>Fats</span><span class="v" id="nFat"></span></div>
+        </div>
+ 
+        <div class="card">
+          <div class="card-title"><span>Macro progress</span><b>Today</b></div>
+          <div class="mrow"><div class="head"><span>Protein</span><span id="mProteinT"></span></div><div class="meter"><i id="mProtein"></i></div></div>
+          <div class="mrow"><div class="head"><span>Fiber</span><span id="mFiberT"></span></div><div class="meter"><i id="mFiber"></i></div></div>
+          <div class="mrow"><div class="head"><span>Carbs</span><span id="mCarbsT"></span></div><div class="meter"><i id="mCarbs"></i></div></div>
+          <div class="mrow"><div class="head"><span>Fats</span><span id="mFatT"></span></div><div class="meter"><i id="mFat"></i></div></div>
+        </div>
+      </div>
+    </section>
+ 
+    <!-- =====================================================
+         STEPS SCREEN
+         ===================================================== -->
+    <section id="view-steps" class="view">
+      <header class="top">
+        <div><h1>Steps</h1><p class="date">Enter your steps from your phone or watch.</p></div>
+      </header>
+ 
+      <div class="stack">
+        <div class="card dark">
+          <div class="label">Today</div>
+          <div class="bigsteps" id="stSteps">0</div>
+          <div class="progress"><i id="stBar"></i></div>
+          <p class="sub" id="stNote"></p>
+          <div class="tri">
+            <div><small>Calories burned</small><b id="stBurn">0</b> kcal</div>
+            <div><small>Distance</small><b id="stKm">0</b> km</div>
+            <div><small>Active time</small><b id="stMin">0</b> min</div>
+          </div>
+        </div>
+ 
+        <div class="card">
+          <h2>Add steps</h2>
+          <div class="quick">
+            <button data-add="500">+500</button>
+            <button data-add="1000">+1,000</button>
+            <button data-add="2500">+2,500</button>
+          </div>
+          <form id="stepsForm">
+            <label for="stepsInput">Or set today's total</label>
+            <div class="inline">
+              <input id="stepsInput" type="number" inputmode="numeric" min="0" max="100000" placeholder="e.g. 6842">
+              <button class="pill" type="submit">Save</button>
+            </div>
+          </form>
+          <p class="note">A web app cannot read your phone's step counter. Copy the number from your health app or watch.</p>
+        </div>
+ 
+        <div class="card">
+          <h2>This week</h2>
+          <div class="lines" id="weekList"></div>
+        </div>
+      </div>
+    </section>
+ 
+    <!-- =====================================================
+         FOOD SCREEN
+         ===================================================== -->
+    <section id="view-food" class="view">
+      <header class="top">
+        <div><h1>Food</h1><p class="date">Log what you eat today.</p></div>
+      </header>
+ 
+      <div class="stack">
+        <div class="card dark">
+          <div class="label">Calories eaten</div>
+          <div class="bigsteps"><span id="fCal">0</span> <small style="font-size:1.1rem;font-weight:400;color:#a6a9a1">kcal</small></div>
+          <div class="progress"><i id="fBar"></i></div>
+          <p class="sub" id="fNote"></p>
+        </div>
+ 
+        <div class="card">
+          <h2>Add food</h2>
+          <form id="foodForm" class="form" style="margin-top:12px">
+            <div class="field full"><label for="foodName">Food name</label><input id="foodName" type="text" placeholder="e.g. 2 eggs and toast" maxlength="60"></div>
+            <div class="field"><label for="foodCal">Calories (kcal)</label><input id="foodCal" type="number" inputmode="decimal" min="0" placeholder="auto if empty"></div>
+            <div class="field"><label for="foodP">Protein (g)</label><input id="foodP" type="number" inputmode="decimal" min="0"></div>
+            <div class="field"><label for="foodC">Carbs (g)</label><input id="foodC" type="number" inputmode="decimal" min="0"></div>
+            <div class="field"><label for="foodF">Fat (g)</label><input id="foodF" type="number" inputmode="decimal" min="0"></div>
+            <div class="field full"><label for="foodFib">Fiber (g)</label><input id="foodFib" type="number" inputmode="decimal" min="0"></div>
+            <div class="field full">
+              <button class="primary" type="submit">Add to today</button>
+              <p class="msg" id="foodMsg"></p>
+            </div>
+          </form>
+          <p class="note">If you leave calories empty, they are worked out from protein, carbs and fat. Fiber is already part of carbs.</p>
+        </div>
+ 
+        <div class="card">
+          <h2>Logged today</h2>
+          <div id="foodList" style="margin-top:6px"></div>
+        </div>
+      </div>
+    </section>
+ 
+    <!-- =====================================================
+         PROFILE SCREEN
+         ===================================================== -->
+    <section id="view-profile" class="view">
+      <header class="top">
+        <div><h1>Profile</h1><p class="date">Your details set your daily targets.</p></div>
+      </header>
+ 
+      <div class="stack">
+        <div class="card">
+          <form id="profileForm" class="form">
+            <div class="field full"><label for="pName">Name (optional)</label><input id="pName" type="text" maxlength="30" placeholder="Your name"></div>
+            <div class="field"><label for="pAge">Age (years)</label><input id="pAge" type="number" inputmode="numeric" min="10" max="100"></div>
+            <div class="field">
+              <label for="pGender">Gender</label>
+              <select id="pGender"><option value="male">Male</option><option value="female">Female</option></select>
+            </div>
+            <div class="field"><label for="pHeight">Height (cm)</label><input id="pHeight" type="number" inputmode="decimal" min="100" max="250"></div>
+            <div class="field"><label for="pWeight">Weight (kg)</label><input id="pWeight" type="number" inputmode="decimal" min="25" max="300"></div>
+            <div class="field full">
+              <label for="pActivity">Activity level</label>
+              <select id="pActivity">
+                <option value="1.2">Little or no exercise</option>
+                <option value="1.375">Light exercise (1-3 days/week)</option>
+                <option value="1.55">Moderate exercise (3-5 days/week)</option>
+                <option value="1.725">Hard exercise (6-7 days/week)</option>
+                <option value="1.9">Very hard exercise or physical job</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="pGoal">Goal</label>
+              <select id="pGoal"><option value="lose">Lose weight</option><option value="maintain">Maintain weight</option><option value="gain">Gain weight</option></select>
+            </div>
+            <div class="field"><label for="pStepGoal">Daily step goal</label><input id="pStepGoal" type="number" inputmode="numeric" min="1000" max="50000"></div>
+            <div class="field full">
+              <button class="primary" type="submit">Save and calculate</button>
+              <p class="msg" id="profileMsg"></p>
+            </div>
+          </form>
+        </div>
+ 
+        <div class="card">
+          <h2>Your daily targets</h2>
+          <div class="lines" id="targetList" style="margin-top:6px"></div>
+          <p class="note">
+            Protein = body weight x 1.5 to 2 g (2 to lose, 1.5 to maintain, 1.8 to gain).
+            Fat = body weight x 0.8 g. The calories left over become carbs, and fiber is part of those carbs.
+            These are general estimates, not medical advice. If you have a health condition, check with a doctor or dietitian.
+          </p>
+        </div>
+      </div>
+    </section>
   </div>
-
+ 
+  <!-- bottom navigation -->
+  <nav class="nav" aria-label="Main">
+    <div class="nav-inner">
+      <button data-go="home" class="on">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>Home
+      </button>
+      <button data-go="steps">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Steps
+      </button>
+      <button data-go="food">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v7a2 2 0 0 0 4 0V3M8 12v9M17 3c-2 0-3 2-3 5s1 4 3 4v9"/></svg>Food
+      </button>
+      <button data-go="profile">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Profile
+      </button>
+    </div>
+  </nav>
+ 
   <script>
-    /* ---------- LOGIC: the calculations ---------- */
-
-    // Connect the button to the calculate function
-    document.getElementById("calcBtn").addEventListener("click", calculate);
-
-    function calculate() {
-      // 1. Read what the user typed
-      const age      = Number(document.getElementById("age").value);
-      const gender   = document.getElementById("gender").value;
-      const height   = Number(document.getElementById("height").value);
-      const weight   = Number(document.getElementById("weight").value);
-      const activity = Number(document.getElementById("activity").value);
-      const goal     = document.getElementById("goal").value;
-
-      const errorBox = document.getElementById("error");
-      const results  = document.getElementById("results");
-
-      // 2. Check the input is valid
-      if (!age || !height || !weight || age < 10 || height < 100 || weight < 25) {
-        errorBox.textContent = "Please enter a valid age, height and weight.";
-        results.classList.add("hidden");
+    /* =====================================================
+       LOGIC: numbers, saving and screens
+       ===================================================== */
+    const $ = id => document.getElementById(id);
+ 
+    /* ----- Settings you can change ----- */
+    const PROTEIN_PER_KG = { lose: 2.0, maintain: 1.5, gain: 1.8 }; // grams per kg of body weight
+    const FAT_PER_KG = 0.8;              // grams per kg of body weight
+    const FIBER_PER_1000_KCAL = 14;      // grams of fiber for every 1000 kcal
+    const WATER_ML_PER_KG = 35;          // millilitres of water per kg
+    const GLASS_ML = 250;                // size of one "+ 250 ml" tap
+    const STEPS_PER_MINUTE = 100;        // used to estimate active time
+    const KCAL_PER_STEP_PER_KG = 0.00057; // used to estimate calories burned
+    const RING_LENGTH = 326.73;          // length of a ring (2 x 3.14159 x 52)
+ 
+    /* ----- Saving data in the browser ----- */
+    function loadData(key, fallback) {
+      try {
+        const text = localStorage.getItem(key);
+        return text ? JSON.parse(text) : fallback;
+      } catch (e) { return fallback; }
+    }
+    function saveData(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* ignore */ }
+    }
+ 
+    const defaultProfile = {
+      name: "", age: 25, gender: "male", height: 170, weight: 65,
+      activity: 1.55, goal: "maintain", stepGoal: 10000, saved: false
+    };
+    let profile = Object.assign({}, defaultProfile, loadData("hp-profile", {}));
+    let days = loadData("hp-days", {});   // one entry per date: { water, steps, foods: [] }
+ 
+    /* ----- Dates ----- */
+    function pad(n) { return String(n).padStart(2, "0"); }
+    function dateKey(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+    function todayData() {
+      const key = dateKey(new Date());
+      if (!days[key]) days[key] = { water: 0, steps: 0, foods: [] };
+      return days[key];
+    }
+ 
+    /* ----- THE MAIN CALCULATION ----- */
+    function calcTargets(p) {
+      // 1. BMR: calories your body burns at rest (Mifflin-St Jeor formula)
+      const bmr = 10 * p.weight + 6.25 * p.height - 5 * p.age + (p.gender === "male" ? 5 : -161);
+      // 2. Maintenance calories = BMR x activity level
+      const maintenance = bmr * p.activity;
+      // 3. Daily calories for your goal
+      let calories = maintenance;
+      if (p.goal === "lose") calories -= 500;
+      if (p.goal === "gain") calories += 400;
+      const minimum = p.gender === "male" ? 1500 : 1200;   // safety floor
+      if (calories < minimum) calories = minimum;
+      // 4. Protein and fat come from body weight
+      const protein = p.weight * PROTEIN_PER_KG[p.goal];
+      const fat = p.weight * FAT_PER_KG;
+      // 5. Remaining calories become carbs (protein and carbs = 4 kcal/g, fat = 9 kcal/g)
+      const carbs = Math.max(0, (calories - protein * 4 - fat * 9) / 4);
+      // 6. Fiber is part of carbs: about 14 g per 1000 kcal
+      const fiber = calories / 1000 * FIBER_PER_1000_KCAL;
+      // 7. Water: 35 ml per kg, rounded to the nearest 50 ml
+      const water = Math.round(p.weight * WATER_ML_PER_KG / 50) * 50;
+      return { bmr, maintenance, calories, protein, fat, carbs, fiber, water };
+    }
+ 
+    /* Steps -> distance, calories and time (estimates) */
+    function stepStats(steps, p) {
+      const strideCm = p.height * (p.gender === "male" ? 0.415 : 0.413);
+      return {
+        km: steps * strideCm / 100000,
+        kcal: steps * p.weight * KCAL_PER_STEP_PER_KG,
+        minutes: steps / STEPS_PER_MINUTE
+      };
+    }
+ 
+    function sumFoods(list) {
+      const t = { cal: 0, p: 0, c: 0, f: 0, fib: 0 };
+      list.forEach(x => { t.cal += x.cal; t.p += x.p; t.c += x.c; t.f += x.f; t.fib += x.fib; });
+      return t;
+    }
+ 
+    /* ----- Small helpers for drawing ----- */
+    function fmt(n) { return Math.round(n).toLocaleString("en-IN"); }
+    function setRing(id, fraction) {
+      const f = Math.min(1, Math.max(0, fraction));
+      $(id).style.strokeDashoffset = RING_LENGTH * (1 - f);
+    }
+    function setMeter(id, value, target, warnWhenOver) {
+      const fraction = target > 0 ? value / target : 0;
+      const el = $(id);
+      el.style.width = Math.min(100, fraction * 100) + "%";
+      el.classList.toggle("over", warnWhenOver && fraction > 1);
+    }
+    function initials(name) {
+      const parts = name.trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 0) return "ME";
+      return parts.slice(0, 2).map(w => w[0].toUpperCase()).join("");
+    }
+ 
+    /* The 7 days of this week, Monday to Sunday */
+    function weekData() {
+      const now = new Date();
+      const offset = (now.getDay() + 6) % 7;      // 0 = Monday
+      const todayKey = dateKey(now);
+      const letters = ["M", "T", "W", "T", "F", "S", "S"];
+      const names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      const result = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset + i);
+        const key = dateKey(d);
+        result.push({
+          letter: letters[i], name: names[i], isToday: key === todayKey,
+          steps: (days[key] && days[key].steps) || 0
+        });
+      }
+      return result;
+    }
+ 
+    /* ----- Draw everything on screen ----- */
+    function render() {
+      const t = calcTargets(profile);
+      const day = todayData();
+      const eaten = sumFoods(day.foods);
+      const walk = stepStats(day.steps, profile);
+      const stepFraction = day.steps / profile.stepGoal;
+      const waterFraction = day.water / t.water;
+ 
+      // header
+      $("dateText").textContent = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
+      $("avatar").textContent = initials(profile.name);
+      $("setupBanner").hidden = profile.saved;
+ 
+      // steps (Home)
+      setRing("stepsRing", stepFraction);
+      $("homeSteps").textContent = fmt(day.steps);
+      $("homeBurn").textContent = fmt(walk.kcal);
+      $("homeKm").textContent = walk.km.toFixed(1);
+      $("homeMin").textContent = fmt(walk.minutes);
+      $("homeStepNote").textContent = Math.round(stepFraction * 100) + "% of your " + fmt(profile.stepGoal) + " step goal";
+ 
+      // steps (Steps screen)
+      $("stSteps").textContent = fmt(day.steps);
+      $("stBar").style.width = Math.min(100, stepFraction * 100) + "%";
+      $("stNote").textContent = Math.round(stepFraction * 100) + "% of your " + fmt(profile.stepGoal) + " step goal";
+      $("stBurn").textContent = fmt(walk.kcal);
+      $("stKm").textContent = walk.km.toFixed(1);
+      $("stMin").textContent = fmt(walk.minutes);
+ 
+      // week
+      const week = weekData();
+      const bars = $("weekBars");
+      bars.innerHTML = "";
+      week.forEach(w => {
+        const col = document.createElement("div");
+        col.className = "day" + (w.isToday ? " today" : "");
+        const bar = document.createElement("div");
+        bar.className = "bar" + (w.isToday ? " today" : "");
+        bar.style.height = (8 + Math.min(1, w.steps / profile.stepGoal) * 64) + "px";
+        bar.title = w.name + ": " + fmt(w.steps) + " steps";
+        const letter = document.createElement("span");
+        letter.textContent = w.letter;
+        col.appendChild(bar);
+        col.appendChild(letter);
+        bars.appendChild(col);
+      });
+      const list = $("weekList");
+      list.innerHTML = "";
+      week.forEach(w => {
+        const row = document.createElement("div");
+        row.className = "l" + (w.isToday ? " today" : "");
+        const a = document.createElement("span");
+        a.textContent = w.name;
+        const b = document.createElement("span");
+        b.textContent = fmt(w.steps) + " steps";
+        row.appendChild(a);
+        row.appendChild(b);
+        list.appendChild(row);
+      });
+ 
+      // water
+      setRing("waterRing", waterFraction);
+      $("waterNow").textContent = fmt(day.water);
+      $("waterNote").textContent = Math.round(waterFraction * 100) + "% of " + fmt(t.water) + " ml goal";
+ 
+      // nutrition list
+      $("nCal").textContent = fmt(eaten.cal) + " / " + fmt(t.calories);
+      $("nProtein").textContent = fmt(eaten.p) + " / " + fmt(t.protein) + " g";
+      $("nFiber").textContent = fmt(eaten.fib) + " / " + fmt(t.fiber) + " g";
+      $("nCarbs").textContent = fmt(eaten.c) + " / " + fmt(t.carbs) + " g";
+      $("nFat").textContent = fmt(eaten.f) + " / " + fmt(t.fat) + " g";
+ 
+      // macro bars
+      $("mProteinT").textContent = fmt(eaten.p) + " / " + fmt(t.protein) + " g";
+      $("mFiberT").textContent = fmt(eaten.fib) + " / " + fmt(t.fiber) + " g";
+      $("mCarbsT").textContent = fmt(eaten.c) + " / " + fmt(t.carbs) + " g";
+      $("mFatT").textContent = fmt(eaten.f) + " / " + fmt(t.fat) + " g";
+      setMeter("mProtein", eaten.p, t.protein, false);
+      setMeter("mFiber", eaten.fib, t.fiber, false);
+      setMeter("mCarbs", eaten.c, t.carbs, true);
+      setMeter("mFat", eaten.f, t.fat, true);
+ 
+      // food screen
+      $("fCal").textContent = fmt(eaten.cal);
+      $("fBar").style.width = Math.min(100, eaten.cal / t.calories * 100) + "%";
+      const left = t.calories - eaten.cal;
+      $("fNote").textContent = left >= 0
+        ? fmt(left) + " kcal left of your " + fmt(t.calories) + " kcal target"
+        : fmt(-left) + " kcal over your " + fmt(t.calories) + " kcal target";
+      renderFoodList(day.foods);
+ 
+      // profile targets
+      const rows = [
+        ["BMR (calories at rest)", fmt(t.bmr) + " kcal"],
+        ["Maintenance calories", fmt(t.maintenance) + " kcal"],
+        ["Daily calories (your goal)", fmt(t.calories) + " kcal"],
+        ["Protein", fmt(t.protein) + " g"],
+        ["Fat", fmt(t.fat) + " g"],
+        ["Carbs (includes fiber)", fmt(t.carbs) + " g"],
+        ["Fiber", fmt(t.fiber) + " g"],
+        ["Water", fmt(t.water) + " ml"]
+      ];
+      const tl = $("targetList");
+      tl.innerHTML = "";
+      rows.forEach(r => {
+        const row = document.createElement("div");
+        row.className = "l";
+        const a = document.createElement("span");
+        a.textContent = r[0];
+        const b = document.createElement("b");
+        b.textContent = r[1];
+        row.appendChild(a);
+        row.appendChild(b);
+        tl.appendChild(row);
+      });
+    }
+ 
+    function renderFoodList(foods) {
+      const box = $("foodList");
+      box.innerHTML = "";
+      if (foods.length === 0) {
+        const p = document.createElement("p");
+        p.className = "empty";
+        p.textContent = "Nothing logged yet. Add your first meal above.";
+        box.appendChild(p);
         return;
       }
-      errorBox.textContent = "";
-
-      // 3. WATER: about 35 ml for every kg of body weight
-      const waterLitres = (weight * 35) / 1000;
-
-      // 4. BMR: calories your body burns at rest (Mifflin-St Jeor formula)
-      let bmr = 10 * weight + 6.25 * height - 5 * age;
-      bmr = gender === "male" ? bmr + 5 : bmr - 161;
-
-      // 5. Maintenance calories = BMR x activity level
-      const maintenance = bmr * activity;
-
-      // 6. Adjust calories for the goal
-      let calories = maintenance;
-      if (goal === "lose") calories = maintenance - 500;
-      if (goal === "gain") calories = maintenance + 400;
-
-      // Safety floor: do not recommend dangerously low calories
-      const minimum = gender === "male" ? 1500 : 1200;
-      if (calories < minimum) calories = minimum;
-
-      // 7. MACROS: 20% protein, 50% carbs, 30% fat
-      // 1 g protein = 4 kcal, 1 g carbs = 4 kcal, 1 g fat = 9 kcal
-      const proteinG = (calories * 0.20) / 4;
-      const carbsG   = (calories * 0.50) / 4;
-      const fatG     = (calories * 0.30) / 9;
-
-      // 8. Show the results on the page
-      document.getElementById("waterOut").textContent   = waterLitres.toFixed(1) + " L";
-      document.getElementById("calOut").textContent     = Math.round(calories) + " kcal";
-      document.getElementById("proteinOut").textContent = Math.round(proteinG) + " g";
-      document.getElementById("carbsOut").textContent   = Math.round(carbsG) + " g";
-      document.getElementById("fatOut").textContent     = Math.round(fatG) + " g";
-
-      results.classList.remove("hidden");
+      foods.forEach(f => {
+        const row = document.createElement("div");
+        row.className = "food";
+        const info = document.createElement("div");
+        info.className = "info";
+        const name = document.createElement("div");
+        name.className = "name";
+        name.textContent = f.name;
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = "P " + fmt(f.p) + " g  |  C " + fmt(f.c) + " g  |  F " + fmt(f.f) + " g  |  Fiber " + fmt(f.fib) + " g";
+        info.appendChild(name);
+        info.appendChild(meta);
+        const kcal = document.createElement("div");
+        kcal.className = "kcal";
+        kcal.textContent = fmt(f.cal) + " kcal";
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "Remove";
+        del.setAttribute("data-del", f.id);
+        row.appendChild(info);
+        row.appendChild(kcal);
+        row.appendChild(del);
+        box.appendChild(row);
+      });
     }
+ 
+    function commit() {            // save everything and redraw
+      saveData("hp-days", days);
+      saveData("hp-profile", profile);
+      render();
+    }
+ 
+    /* ----- Switching screens ----- */
+    function go(name) {
+      document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + name));
+      document.querySelectorAll(".nav button").forEach(b => b.classList.toggle("on", b.dataset.go === name));
+      window.scrollTo(0, 0);
+    }
+    document.addEventListener("click", e => {
+      const target = e.target.closest("[data-go]");
+      if (target) go(target.dataset.go);
+    });
+ 
+    /* ----- Water buttons ----- */
+    $("addWater").addEventListener("click", () => { todayData().water += GLASS_ML; commit(); });
+    $("undoWater").addEventListener("click", () => {
+      const day = todayData();
+      day.water = Math.max(0, day.water - GLASS_ML);
+      commit();
+    });
+ 
+    /* ----- Steps ----- */
+    document.querySelectorAll("[data-add]").forEach(btn => {
+      btn.addEventListener("click", () => { todayData().steps += Number(btn.dataset.add); commit(); });
+    });
+    $("stepsForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const value = Number($("stepsInput").value);
+      if ($("stepsInput").value === "" || value < 0 || value > 100000) return;
+      todayData().steps = Math.round(value);
+      $("stepsInput").value = "";
+      commit();
+    });
+ 
+    /* ----- Food ----- */
+    $("foodForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const num = id => Math.max(0, Number($(id).value) || 0);
+      const p = num("foodP"), c = num("foodC"), f = num("foodF"), fib = num("foodFib");
+      let cal = num("foodCal");
+      if (cal === 0) cal = p * 4 + c * 4 + f * 9;      // work out calories from macros
+      if (cal === 0) {
+        $("foodMsg").textContent = "Enter calories, or at least one of protein, carbs or fat.";
+        return;
+      }
+      $("foodMsg").textContent = "";
+      const name = $("foodName").value.trim() || "Food";
+      todayData().foods.push({ id: Date.now(), name: name, cal: cal, p: p, c: c, f: f, fib: fib });
+      $("foodForm").reset();
+      commit();
+    });
+    $("foodList").addEventListener("click", e => {
+      const id = e.target.getAttribute("data-del");
+      if (!id) return;
+      const day = todayData();
+      day.foods = day.foods.filter(f => String(f.id) !== id);
+      commit();
+    });
+ 
+    /* ----- Profile ----- */
+    function fillProfileForm() {
+      $("pName").value = profile.name;
+      $("pAge").value = profile.age;
+      $("pGender").value = profile.gender;
+      $("pHeight").value = profile.height;
+      $("pWeight").value = profile.weight;
+      $("pActivity").value = String(profile.activity);
+      $("pGoal").value = profile.goal;
+      $("pStepGoal").value = profile.stepGoal;
+    }
+    $("profileForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const age = Number($("pAge").value);
+      const height = Number($("pHeight").value);
+      const weight = Number($("pWeight").value);
+      const stepGoal = Number($("pStepGoal").value);
+      const ok = age >= 10 && age <= 100 && height >= 100 && height <= 250 &&
+                 weight >= 25 && weight <= 300 && stepGoal >= 1000 && stepGoal <= 50000;
+      if (!ok) {
+        $("profileMsg").textContent = "Check your details: age 10-100, height 100-250 cm, weight 25-300 kg, step goal 1,000-50,000.";
+        return;
+      }
+      $("profileMsg").textContent = "";
+      profile = {
+        name: $("pName").value.trim(), age: age, gender: $("pGender").value,
+        height: height, weight: weight, activity: Number($("pActivity").value),
+        goal: $("pGoal").value, stepGoal: stepGoal, saved: true
+      };
+      commit();
+      go("home");
+    });
+ 
+    /* ----- Start the app ----- */
+    fillProfileForm();
+    render();
   </script>
 </body>
 </html>
+ 
